@@ -1,0 +1,8 @@
+MANIFEST
+LICENSE
+README
+Todo
+Changes
+lib/MIDI/Tab.pm
+t/001_test.t
+Makefile.PL
