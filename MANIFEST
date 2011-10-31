@@ -1,8 +1,11 @@
-MANIFEST
-LICENSE
-README
-Todo
 Changes
-lib/MIDI/Tab.pm
-t/001_test.t
+LICENSE
+MANIFEST
+META.yml
 Makefile.PL
+README
+dist.ini
+eg/street_spirit
+lib/MIDI/Tab.pm
+t/00-load.t
+t/01-methods.t

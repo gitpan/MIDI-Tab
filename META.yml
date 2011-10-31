@@ -1,0 +1,22 @@
+---
+abstract: 'Generate MIDI from ASCII tablature'
+author:
+  - 'Rob Symes <rob@robsymes.com> and Gene Boggs <gene@cpan.org>'
+build_requires:
+  Test::More: 0
+configure_requires:
+  ExtUtils::MakeMaker: 6.30
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 4.300000, CPAN::Meta::Converter version 2.112150'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: MIDI-Tab
+requires:
+  Exporter: 0
+  MIDI::Simple: 0
+  base: 0
+  strict: 0
+  warnings: 0
+version: 0.02

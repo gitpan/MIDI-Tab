@@ -1,6 +1,13 @@
-Revision history for Perl module MIDI::Tab
+Revision history for MIDI-Tab
+
+0.02 Sun Oct 30 23:45:00 2011
+    - Resuscitated by Gene Boggs.
+    - Added actual tests.
+    - Made drum setting variables alterable to the outside world.
+    - Added all GM drums instead of a tiny fraction.
+    - Factored-out redundancy, temporary variables and hid low-level code by making common routines.
+    - Normalized variable naming across the subroutines.
+    - Enhanced POD, big-time.
 
 0.01 Tue Aug  5 16:32:09 2003
-	- original version; created by ExtUtils::ModuleMaker 0.32
-
-
+    - Original version created by ExtUtils::ModuleMaker 0.32 by Rob Symes.
