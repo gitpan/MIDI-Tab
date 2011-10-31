@@ -10,7 +10,7 @@ use base 'Exporter';
 our @ISA = qw(Exporter);
 our @EXPORT = qw(from_guitar_tab from_drum_tab from_piano_tab);
 
-our $VERSION = 0.02;
+our $VERSION = 0.03;
 
 =head1 NAME
 
@@ -22,6 +22,8 @@ MIDI::Tab - Generate MIDI from ASCII tablature
   use MIDI::Simple;
 
   new_score;
+  patch_change 1, 34; # Bass
+  patch_change 3, 49; # Strings
 
   my $drums = <<'EOF';
   CYM: 8-------------------------------
@@ -38,18 +40,24 @@ MIDI::Tab - Generate MIDI from ASCII tablature
   E2: ----------------3--31-2-3--23-4-
   EOF
 
-  for(1 .. 4){
-      synch(
-          sub {
-              from_drum_tab($_[0], $drums, 'sn');
-          },
-          sub {
-              from_guitar_tab($_[0], $bass, 'sn');
-          },
-      );
-  }
+  my $strings = <<'EOF';
+  A5: 55
+  A4: 55
+  EOF
 
-  write_score('demo.mid');
+  synch(
+      sub {
+          from_drum_tab($_[0], $drums, 'sn');
+      },
+      sub {
+          from_guitar_tab($_[0], $bass, 'sn', 'c1');
+      },
+      sub {
+          from_piano_tab($_[0], $strings, 'wn', 'c3');
+      },
+  );
+
+  write_score('MIDI-Tab.mid');
 
 =head1 DESCRIPTION
 
@@ -58,6 +66,8 @@ is designed to work alongside Sean M. Burke's C<MIDI::Simple>.
 
 Currently, there are three types of tablature supported: drum, guitar
 and piano tab.
+
+Note that bar lines (C<|>) are ignored.
 
 =cut
 
@@ -113,9 +123,6 @@ our %drum_notes = (
 );
 %drum_notes = map { $_ => 'n' . $drum_notes{$_} } keys %drum_notes;
 
-# TODO Make this a default attribute:
-our $drum_channel = 'c9';
-
 =head1 METHODS
 
 Each of these routines generates a set of MIDI::Simple notes on the object
@@ -135,9 +142,9 @@ of time can be specified by passing a C<MIDI::Simple> duration value
 
   from_guitar_tab($object, $tab_text, @noops)
 
-Notes are specified by an ASCII representation of a guitar with each
-horizontal line of ASCII characters representing a guitar string (as
-if the guitar were laid face-up in front of you).
+Notes are specified by an ASCII guitar where each horizontal line
+represents a guitar string (as if the guitar were laid face-up in
+front of you).
 
 Time runs from left to right.  You can 'tune' the guitar by specifying
 different root notes for the strings.  These should be specified as a
@@ -149,6 +156,8 @@ played.
 
 sub from_guitar_tab {
     my ($score, $tab, @noop) = @_;
+
+    # TODO Set $patch = 24 unless another is provided.
 
     $score->noop(@noop);
 
@@ -196,15 +205,21 @@ C<%MIDI::Tab::drum_notes>, which can be viewed or altered by your code.
 The numbers on the tablature represent the volume of the drum hit,
 from 1 to 9, where 9 is the loudest.
 
-If desired, the MIDI channel that is used for drums (default 9) can be
-changed by altering C<$MIDI::Tab::drum_channel>.
-
 =cut
 
 sub from_drum_tab {
     my ($score, $tab, @noop) = @_;
 
-    $score->noop($drum_channel, @noop);
+    # Set the drum channel if none has been provided.
+    my $channel = 'c9';
+    for (@noop) {
+        if (/^(c\d+)$/) {
+            $channel = $1;
+            unshift @noop, $channel;
+        }
+    }
+
+    $score->noop(@noop);
 
     my %lines = _parse_tab($tab, 'drum');
 
@@ -220,7 +235,7 @@ sub from_drum_tab {
 
             for my $n (@notes) {
                 if (defined $n) {
-                    $score->n($drum_channel, $drum, $n);  # The note contains the volume
+                    $score->n($channel, $drum, $n);  # The note contains the volume
                 }
                 else {
                     $score->r;
@@ -239,7 +254,8 @@ sub from_drum_tab {
   from_piano_tab($object, $tab_text, @noops)
 
 Each horizonal line represents a different note on the piano and time
-runs from left to right.
+runs from left to right.  The values on the line represent volumes
+from 1 to 9.
 
 =cut
 
@@ -278,15 +294,19 @@ sub from_piano_tab {
 sub _parse_tab {
     my($tab, $type) = @_;
 
-    my %lines;
+    # Remove bar lines.
+    $tab =~ s/\|//g;
 
+    # Regular expression to capture parts of the tab.
     my $re = qr/^\s*([A-Za-z0-9]+)\:\s*([0-9+-]+)\s+(.*)$/s;
     $re = qr/^\s*([A-Z]{2,3})\:\s*([0-9+-]+)\s+(.*)$/s if $type && $type eq 'drum';
 
+    # Build lines from the tabulature.
+    my %lines;
     while($tab =~ /$re/g) {
-        my ($base, $line, $rest) = ($1, $2, $3);
-        $lines{$base} = $line;
-        $tab = $rest;
+        my ($note, $line, $remainder) = ($1, $2, $3);
+        $lines{$note} = $line;
+        $tab = $remainder;
     }
 
     return %lines;
@@ -294,7 +314,8 @@ sub _parse_tab {
 
 sub _split_lines {
     my($lines, $note, $base) = @_;
-    
+
+    # Construct a list of notes or notes with volumes.
     my @notes = map {(
         $_ =~ /^[0-9]$/ ? ($base ? 'n' . ($base + $_) : ('V' . $_ * 12)) : undef
     )} split '', $lines->{$note};
