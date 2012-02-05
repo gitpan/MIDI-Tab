@@ -1,11 +1,11 @@
 
 
 This archive contains the distribution MIDI-Tab,
-version 0.03:
+version 0.03_1:
 
   Generate MIDI from ASCII tablature
 
-This software is copyright (c) 2011 by Rob Symes and Gene Boggs.
+This software is copyright (c) 2012 by Rob Symes and Gene Boggs.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

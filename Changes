@@ -1,5 +1,8 @@
 Revision history for MIDI-Tab
 
+0.03_1 Sun Feb 5 2012
+    - Began to integrate a rhythm control tab line with a test no-less!
+
 0.03 Mon Oct 31 10:15:00 2011
     - Document that bar lines are ignored
     - Remove the drum_channel global and instead set it in the drum sub if none has been provided in the noop args.

@@ -10,7 +10,9 @@ use base 'Exporter';
 our @ISA = qw(Exporter);
 our @EXPORT = qw(from_guitar_tab from_drum_tab from_piano_tab);
 
-our $VERSION = 0.03;
+our $VERSION = '0.03_1';
+
+use constant CONTROL => 'CTL';
 
 =head1 NAME
 
@@ -59,6 +61,12 @@ MIDI::Tab - Generate MIDI from ASCII tablature
 
   write_score('MIDI-Tab.mid');
 
+  # Use of the control line:
+  $tab = <<'EOF';
+  CTL: --------3-3-3-3---------
+  HH:  959595959595959595959595
+  EOF
+
 =head1 DESCRIPTION
 
 C<MIDI::Tab> allows you to create MIDI files from ASCII tablature.  It
@@ -67,11 +75,13 @@ is designed to work alongside Sean M. Burke's C<MIDI::Simple>.
 Currently, there are three types of tablature supported: drum, guitar
 and piano tab.
 
-Note that bar lines (C<|>) are ignored.
+Note that bar lines (C<|>) are ignored.  Also a "control line" may be
+specified to alter no-ops for individual notes.
 
 =cut
 
-# TODO Make a mutator method for this list:
+# TODO Make a mutator method for this list.
+# TODO Don't require an made-up "line name" - just use the patch number.
 our %drum_notes = (
     ABD => 35,  # Acoustic Bass Drum
     BD  => 36,  # Bass Drum 1
@@ -138,6 +148,11 @@ start of the tab rendering.  For example, the length of each unit
 of time can be specified by passing a C<MIDI::Simple> duration value
 (eg 'sn').
 
+Additionally, a "control line" for individulal note modification may
+be included in the tab, at the same vertical position as the note it
+modifies.  This line must be named C<CTL>.  At this point it is only
+used to specify triplet timing.
+
 =head2 from_guitar_tab()
 
   from_guitar_tab($object, $tab_text, @noops)
@@ -159,35 +174,57 @@ sub from_guitar_tab {
 
     # TODO Set $patch = 24 unless another is provided.
 
+    # Add the no-ops to the score.
     $score->noop(@noop);
 
+    # Grab the tab lines.
     my %lines = _parse_tab($tab);
 
+    # Create routines for each line.
     my @subs;
-
-    for my $note (keys %lines) {
-        my ($base_note_number) = is_absolute_note_spec($note);
-        die "Invalid base note: $note " unless $base_note_number;
+    for my $line (keys %lines) {
+        my ($base_note_number) = is_absolute_note_spec($line);
+        die "Invalid base type: $line" unless $base_note_number || $line eq CONTROL();
 
         my $_sub = sub {
             my $score = shift;
-            #die "Invalid note: $note" unless ???;
 
-            my @notes = _split_lines(\%lines, $note, $base_note_number);
+            # Split tab lines into notes and control.
+            my @notes = ();
+            @notes = _split_lines(\%lines, $line, $base_note_number) unless $line eq CONTROL();
 
+            # Collect the noop controls.
+            my @control = ();
+            @control = _split_lines(\%lines, CONTROL()) if exists $lines{CONTROL()};
+
+            # Keep track of the beat.
+            my $i = 0;
+
+            # Add each note, rest and control noop to the score.
             for my $n (@notes) {
+                # Set the note noop.
+                my @ctl = @noop;
+                @ctl = ($control[$i]) if @control;
+
+                # Add to the score.
                 if (defined $n) {
-                    $score->n($n);  # $note contains the volume
+                    $score->n($n, @ctl);
                 }
                 else {
-                    $score->r;
+                    $score->r(@ctl);
                 }
+
+                # Increment the note we are inspecting.
+                $i++;
             }
         };
 
+        # Collect the performace subroutines.
         push @subs, $_sub;
     }
 
+    # XXX This line looks suspiciously unnecessary. Hmmmmm
+    # Add the part to the score.
     $score->synch(@subs);
 }
 
@@ -219,33 +256,57 @@ sub from_drum_tab {
         }
     }
 
+    # Add the no-ops to the score.
     $score->noop(@noop);
 
+    # Grab the tab lines.
     my %lines = _parse_tab($tab, 'drum');
 
+    # Create routines for each line.
     my @subs;
-
-    for my $note (keys %lines) {
+    for my $line (keys %lines) {
         my $_sub = sub {
             my $score = shift;
-            die "Invalid drum type: $note" unless $drum_notes{$note};
-            my $drum = $drum_notes{$note};
 
-            my @notes = _split_lines(\%lines, $note);
+            die "Invalid drum type: $line" unless $drum_notes{$line} || $line eq CONTROL();
+            my $drum = $drum_notes{$line};
 
+            # Split tab lines into notes and control.
+            my @notes = ();
+            @notes = _split_lines(\%lines, $line) unless $line eq CONTROL();
+
+            # Collect the noop controls.
+            my @control = ();
+            @control = _split_lines(\%lines, CONTROL()) if exists $lines{CONTROL()};
+
+            # Keep track of the beat.
+            my $i = 0;
+
+            # Add each note, rest and control noop to the score.
             for my $n (@notes) {
+                # Set the note noop.
+                my @ctl = @noop;
+                @ctl = ($control[$i]) if @control;
+
+                # Add to the score.
                 if (defined $n) {
-                    $score->n($channel, $drum, $n);  # The note contains the volume
+                    $score->n($channel, $drum, $n, @ctl);
                 }
                 else {
-                    $score->r;
+                    $score->r(@ctl);
                 }
+
+                # Increment the note we are inspecting.
+                $i++;
             }
         };
 
+        # Collect the performace subroutines.
         push @subs, $_sub;
     }
 
+    # XXX This line looks suspiciously unnecessary. Hmmmmm
+    # Add the part to the score.
     $score->synch(@subs);
 }
 
@@ -262,32 +323,55 @@ from 1 to 9.
 sub from_piano_tab {
     my ($score, $tab, @noop) = @_;
 
+    # Add the no-ops to the score.
     $score->noop(@noop);
 
+    # Grab the tab lines.
     my %lines = _parse_tab($tab);
 
+    # Create routines for each line.
     my @subs;
-
-    for my $note (keys %lines) {
+    for my $line (keys %lines) {
         my $_sub = sub {
             my $score = shift;
-            #die "Invalid note: $note" unless ???;
+            #die "Invalid note: $line" unless ???;
 
-            my @notes = _split_lines(\%lines, $note);
+            # Split tab lines into notes and control.
+            my @notes = ();
+            @notes = _split_lines(\%lines, $line);
 
-            for my $volume (@notes) {
-                if (defined $volume) {
-                    $score->n($note, $volume);  # $note contains the volume
+            # Collect the noop controls.
+            my @control = ();
+            @control = _split_lines(\%lines, CONTROL()) if exists $lines{CONTROL()};
+
+            # Keep track of the beat.
+            my $i = 0;
+
+            # Add each note, rest and control noop to the score.
+            for my $n (@notes) {
+                # Set the note noop.
+                my @ctl = @noop;
+                @ctl = ($control[$i]) if @control;
+
+                # Add to the score.
+                if (defined $n) {
+                    $score->n($line, $n, @ctl);
                 }
                 else {
-                    $score->r;
+                    $score->r(@ctl);
                 }
+
+                # Increment the note we are inspecting.
+                $i++;
             }
         };
 
+        # Collect the performace subroutines.
         push @subs, $_sub;
     }
 
+    # XXX This line looks suspiciously unnecessary. Hmmmmm
+    # Add the part to the score.
     $score->synch(@subs);
 }
 
@@ -297,7 +381,7 @@ sub _parse_tab {
     # Remove bar lines.
     $tab =~ s/\|//g;
 
-    # Regular expression to capture parts of the tab.
+    # Set a regular expression to capture parts of the tab.
     my $re = qr/^\s*([A-Za-z0-9]+)\:\s*([0-9+-]+)\s+(.*)$/s;
     $re = qr/^\s*([A-Z]{2,3})\:\s*([0-9+-]+)\s+(.*)$/s if $type && $type eq 'drum';
 
@@ -313,14 +397,37 @@ sub _parse_tab {
 }
 
 sub _split_lines {
-    my($lines, $note, $base) = @_;
+    my($lines, $line, $base) = @_;
 
-    # Construct a list of notes or notes with volumes.
-    my @notes = map {(
-        $_ =~ /^[0-9]$/ ? ($base ? 'n' . ($base + $_) : ('V' . $_ * 12)) : undef
-    )} split '', $lines->{$note};
+    # Construct a list of notes, volumes or noop controls.
+    my @items = ();
 
-    return @notes;
+    for my $n (split '', $lines->{$line}) {
+        # Grab the control noop.
+        if ($line eq CONTROL()) {
+            if ($n eq '3') {
+                push @items, 'ten';
+            }
+            else {
+                push @items, undef;
+            }
+        }
+        # Grab the note, itself.
+        elsif ($n =~ /^[0-9]$/) {
+            if ($base) {
+                push @items, 'n' . ($base + $n);
+            }
+            else {
+                # XXX This x12 bit looks suspiciously wrong.
+                push @items, 'V' . ($n * 12);
+            }
+        }
+        else {
+            push @items, undef;
+        }
+    }
+
+    return @items;
 }
 
 1;

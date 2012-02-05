@@ -25,10 +25,11 @@ my %WriteMakefileArgs = (
     "Exporter" => 0,
     "MIDI::Simple" => 0,
     "base" => 0,
+    "constant" => 0,
     "strict" => 0,
     "warnings" => 0
   },
-  "VERSION" => "0.03",
+  "VERSION" => "0.03_1",
   "test" => {
     "TESTS" => "t/*.t"
   }

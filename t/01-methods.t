@@ -45,3 +45,13 @@ new_score;
 synch( sub { from_piano_tab($_[0], $tab, 'wn') } );
 write_score($file);
 ok -s $file, 'piano';
+
+$file = 't/control.mid';
+$tab = <<'EOF';
+CTL: --------3-3-3-3---------
+HH:  959595959595959595959595
+EOF
+new_score;
+synch( sub { from_drum_tab($_[0], $tab, 'en') } );
+write_score($file);
+ok -s $file, 'control';
