@@ -18,7 +18,7 @@ our @EXPORT = qw(
     from_piano_tab
 );
 
-our $VERSION = '0.04';
+our $VERSION = '0.0401';
 
 use constant CONTROL => 'CTL';
 
@@ -335,7 +335,7 @@ MIDI::Tab - Generate MIDI from ASCII tablature
 
 =head1 VERSION
 
-version 0.04
+version 0.0401
 
 =head1 SYNOPSIS
 
@@ -397,10 +397,6 @@ and piano tab.
 Note that bar lines (C<|>) are ignored.  Also a C<control line> may be
 specified, in order to alter no-ops for individual notes.  This is an
 incomplete, experimental but useful feature.
-
-=head1 NAME
-
-MIDI::Tab - Generate MIDI from ASCII tablature
 
 =head1 METHODS
 
